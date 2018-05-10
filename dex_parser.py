@@ -6,6 +6,7 @@ import getopt
 import binascii
 
 from dex_header import Dex_header
+from dex_map_item import Dex_map_item
 
 dex_header_data = None
 
@@ -26,12 +27,40 @@ def read_file(path):
 
 def parse_dex(dex_data):
     parse_dex_header(dex_data)
-    
+    parse_map(dex_data)
 
+
+def parse_map(dex_data):
+    print '----------map------------'
+
+    map_off = dex_header_data.map_off
+    size = int(endan_little(binascii.b2a_hex(dex_data[map_off:map_off + 4])))
+    print 'map list size :', size
+
+    dex_map_items_data = dex_data[map_off:map_off + size * 12]
+
+    map_items = []
+    for i in range(0, 12):
+        start_offset = i * 12
+        end_offset = i * 12 + 12
+        map_item_data = endan_little(binascii.b2a_hex(dex_map_items_data[start_offset:end_offset]))
+        item_type = map_item_data[0:4]
+        item_unused = map_item_data[4:8]
+        item_size = map_item_data[8:16]
+        item_offset = map_item_data[16:24]
+        map_items.append(Dex_map_item(item_type, item_unused, item_size, item_offset))
+
+        # print 'item:'
+        print 'type:', item_type
+        # print 'unused:', item_unused
+        # print 'size:', item_size
+        print 'offset:', item_offset
 
 
 def parse_dex_header(dex_data):
     global dex_header_data
+
+    print '----------header------------'
 
     dex_hex_data = binascii.b2a_hex(dex_data)
     # dex_hex_data = dex_data
@@ -163,7 +192,7 @@ def parse_dex_header(dex_data):
     print 'data_size :', data_size
     data_off_set = data_size_offset
     data_off_offset = data_off_set + 4 * 2
-    data_off = int(endan_little(dex_hex_data[data_size_offset:data_off_offset]), 16)
+    data_off = int(endan_little(dex_hex_data[data_off_set:data_off_offset]), 16)
     print 'data_off :', data_off
 
     dex_header_data = Dex_header(magic, version, checksum, signature,
