@@ -3,7 +3,8 @@
 
 import sys
 import getopt
-from parser_util import parse_dex_header, parse_map
+
+from parser_util import parse_map_items, parse_dex_header, parse_map
 
 
 def read_file(path):
@@ -14,7 +15,8 @@ def read_file(path):
 
 def parse_dex(dex_data):
     dex_header_data = parse_dex_header(dex_data)
-    parse_map(dex_data, dex_header_data)
+    map_items = parse_map(dex_data, dex_header_data)
+    parse_map_items(dex_data, map_items)
 
 
 def main(argv):
