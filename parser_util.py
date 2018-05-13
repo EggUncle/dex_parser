@@ -226,7 +226,18 @@ def parse_string_items(dex_data, map_item):
     for i in range(0, size):
         d_start = i * 4
         d_end = i * 4 + 4
-        string_data_off = data[d_start:d_end]
-        print int(endan_little(binascii.b2a_hex(string_data_off)), 16)
+        string_data_off_data = data[d_start:d_end]
+        string_data_off = int(endan_little(binascii.b2a_hex(string_data_off_data)), 16)
+        string_size = int(endan_little(binascii.b2a_hex(dex_data[string_data_off:string_data_off + 1])), 16)
+        # print string_data_off, string_size
+        string_data = dex_data[string_data_off + 1:string_data_off + 1 + string_size]
+        sstring = ''
+        for j in range(0, string_size):
+            j_start = j
+            j_end = j + 1
+            string = chr(int(endan_little(binascii.b2a_hex(string_data[j_start:j_end])), 16))
+            sstring = sstring + string
+            pass
+        print string_data_off, sstring
 
     pass
