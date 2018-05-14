@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+
 import binascii
 
 import sys
@@ -213,31 +216,109 @@ def parse_map(dex_data, dex_header_data):
 
 def parse_map_items(dex_data, map_items):
     print '--------------map items----------------'
+    str_list = []
+    type_list = []
     for item in map_items:
         ty = item.type
         if ty == '0001':
-            parse_string_items(dex_data, item)
+            print '--------------string items----------------'
+            str_list = parse_string_items(dex_data, item)
+        elif ty == '0002':
+            print '--------------type items----------------'
+            type_list = parse_type_items(dex_data, item, str_list)
+        elif ty == '0003':
+            print '--------------proto items----------------'
+            parse_proto_items(dex_data, item, str_list, type_list)
+        elif ty == '0004':
+            print '--------------field items----------------'
+            parse_field_items(dex_data, item, str_list, type_list)
 
 
 def parse_string_items(dex_data, map_item):
     size = int(map_item.size, 16)
     offset = int(map_item.offset, 16)
     data = dex_data[offset:offset + size * 4]
+    str_list = []
     for i in range(0, size):
         d_start = i * 4
         d_end = i * 4 + 4
         string_data_off_data = data[d_start:d_end]
-        string_data_off = int(endan_little(binascii.b2a_hex(string_data_off_data)), 16)
-        string_size = int(endan_little(binascii.b2a_hex(dex_data[string_data_off:string_data_off + 1])), 16)
+        string_data_off = bytedata_to_int(string_data_off_data)
+        # 这里对size的长度处理可能比较粗暴,如果细化处理这里应该根据uleb128来解析
+        string_size = bytedata_to_int(dex_data[string_data_off:string_data_off + 1])
         # print string_data_off, string_size
         string_data = dex_data[string_data_off + 1:string_data_off + 1 + string_size]
         sstring = ''
         for j in range(0, string_size):
             j_start = j
             j_end = j + 1
-            string = chr(int(endan_little(binascii.b2a_hex(string_data[j_start:j_end])), 16))
+            string = chr(bytedata_to_int(string_data[j_start:j_end]))
             sstring = sstring + string
-            pass
-        print string_data_off, sstring
+        # print string_data_off, i, sstring
+        str_list.append(sstring)
 
-    pass
+    return str_list
+
+
+def parse_type_items(dex_data, map_item, str_list):
+    size = int(map_item.size, 16)
+    offset = int(map_item.offset, 16)
+    data = dex_data[offset:offset + size * 4]
+    type_list = []
+    for i in range(0, size):
+        d_start = i * 4
+        d_end = i * 4 + 4
+        index = bytedata_to_int(data[d_start:d_end])
+        # print str_list[index]
+        type_list.append(str_list[index])
+
+    return type_list
+
+
+def parse_proto_items(dex_data, map_item, str_list, type_list):
+    size = int(map_item.size, 16)
+    offset = int(map_item.offset, 16)
+    data = dex_data[offset:offset + size * 12]
+    for i in range(0, size):
+        d_start = i * 12
+        d_end = i * 12 + 12
+        item_data = data[d_start:d_end]
+        shorty_idx = bytedata_to_int(item_data[0:4])
+        return_type_idx = bytedata_to_int(item_data[4:8])
+        parameters_off = bytedata_to_int(item_data[8:12])
+
+        shorty = str_list[shorty_idx]
+        return_type = type_list[return_type_idx]
+        type_list_size = 0
+        if parameters_off != 0:
+            type_list_size = bytedata_to_int(dex_data[parameters_off:parameters_off + 4])
+        type_list_data = dex_data[parameters_off + 4:parameters_off + 4 + type_list_size * 2]
+        type_items = ''
+        for j in range(0, type_list_size):
+            j_start = j * 2
+            j_end = j * 2 + 2
+            type_item = type_list[bytedata_to_int(type_list_data[j_start:j_end])]
+            type_items = type_items + type_item + ' '
+
+        print shorty, return_type, type_items
+
+
+def parse_field_items(dex_data, map_item, str_list, type_list):
+    size = int(map_item.size, 16)
+    offset = int(map_item.offset, 16)
+    data = dex_data[offset:offset + size * 8]
+    for i in range(0, size):
+        i_start = i * 8
+        i_end = i * 8 + 8
+        item_data = data[i_start:i_end]
+        class_idx = bytedata_to_int(item_data[0:2])
+        type_idx = bytedata_to_int(item_data[2:4])
+        name_idx = bytedata_to_int(item_data[4:8])
+
+        print 'class:', type_list[class_idx]
+        print 'type:', type_list[type_idx]
+        print 'name:', str_list[name_idx]
+
+
+def bytedata_to_int(data):
+    return int(endan_little(binascii.b2a_hex(data)), 16)
