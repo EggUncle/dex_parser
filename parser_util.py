@@ -5,8 +5,11 @@ import binascii
 
 import sys
 
+from dex_field_id import Dex_field_id
 from dex_header import Dex_header
 from dex_map_item import Dex_map_item
+from dex_method_id import Dex_method_id
+from dex_proto_id import Dex_proto_id, Dex_type_list, Dex_type_item
 
 map_type_dict = {
     '0000': 'kDexTypeHeaderItem',
@@ -218,6 +221,9 @@ def parse_map_items(dex_data, map_items):
     print '--------------map items----------------'
     str_list = []
     type_list = []
+    proto_list = []
+    field_list = []
+    method_list = []
     for item in map_items:
         ty = item.type
         if ty == '0001':
@@ -228,10 +234,16 @@ def parse_map_items(dex_data, map_items):
             type_list = parse_type_items(dex_data, item, str_list)
         elif ty == '0003':
             print '--------------proto items----------------'
-            parse_proto_items(dex_data, item, str_list, type_list)
+            proto_list = parse_proto_items(dex_data, item, str_list, type_list)
         elif ty == '0004':
             print '--------------field items----------------'
-            parse_field_items(dex_data, item, str_list, type_list)
+            field_list = parse_field_items(dex_data, item, str_list, type_list)
+        elif ty == '0005':
+            print '--------------method items----------------'
+            method_list = parse_method_items(dex_data, item, str_list, type_list, proto_list)
+        elif ty == '0006':
+            print '--------------class items----------------'
+            parse_class_def_items(dex_data, item, str_list, type_list, field_list, method_list)
 
 
 def parse_string_items(dex_data, map_item):
@@ -279,6 +291,7 @@ def parse_proto_items(dex_data, map_item, str_list, type_list):
     size = int(map_item.size, 16)
     offset = int(map_item.offset, 16)
     data = dex_data[offset:offset + size * 12]
+    proto_list = []
     for i in range(0, size):
         d_start = i * 12
         d_end = i * 12 + 12
@@ -294,19 +307,32 @@ def parse_proto_items(dex_data, map_item, str_list, type_list):
             type_list_size = bytedata_to_int(dex_data[parameters_off:parameters_off + 4])
         type_list_data = dex_data[parameters_off + 4:parameters_off + 4 + type_list_size * 2]
         type_items = ''
+
+        proto_id = Dex_proto_id(shorty_idx, return_type_idx, parameters_off)
+        item_list = []
+        dex_type_list = Dex_type_list(type_list_size, item_list)
+
         for j in range(0, type_list_size):
             j_start = j * 2
             j_end = j * 2 + 2
-            type_item = type_list[bytedata_to_int(type_list_data[j_start:j_end])]
+            type_idx = bytedata_to_int(type_list_data[j_start:j_end])
+            type_item = type_list[type_idx]
             type_items = type_items + type_item + ' '
+            type_item = Dex_type_item(type_idx)
+            dex_type_list.add_type_item_list(type_item)
 
-        print shorty, return_type, type_items
+        proto_id.set_type_list(dex_type_list)
+        proto_list.append(proto_id)
+        # print shorty, return_type, type_items
+
+    return proto_list
 
 
 def parse_field_items(dex_data, map_item, str_list, type_list):
     size = int(map_item.size, 16)
     offset = int(map_item.offset, 16)
     data = dex_data[offset:offset + size * 8]
+    field_list = []
     for i in range(0, size):
         i_start = i * 8
         i_end = i * 8 + 8
@@ -314,10 +340,59 @@ def parse_field_items(dex_data, map_item, str_list, type_list):
         class_idx = bytedata_to_int(item_data[0:2])
         type_idx = bytedata_to_int(item_data[2:4])
         name_idx = bytedata_to_int(item_data[4:8])
+        field_list.append(Dex_field_id(class_idx, type_idx, name_idx))
+        # print ''
+        # print 'class:', type_list[class_idx]
+        # print 'type:', type_list[type_idx]
+        # print 'name:', str_list[name_idx]
 
-        print 'class:', type_list[class_idx]
-        print 'type:', type_list[type_idx]
-        print 'name:', str_list[name_idx]
+    return field_list
+
+
+def parse_method_items(dex_data, map_item, str_list, type_list, proto_list):
+    size = int(map_item.size, 16)
+    offset = int(map_item.offset, 16)
+    data = dex_data[offset:offset + size * 8]
+    method_list = []
+    for i in range(0, size):
+        i_start = i * 8
+        i_end = i * 8 + 8
+        item_data = data[i_start:i_end]
+        class_idx = bytedata_to_int(item_data[0:2])
+        proto_idx = bytedata_to_int(item_data[2:4])
+        name_idx = bytedata_to_int(item_data[4:8])
+
+        class_data = type_list[class_idx]
+        proto_data = proto_list[proto_idx]
+        name_data = str_list[name_idx]
+        print ''
+        print 'class :', class_data
+        print 'proto :', print_proto(proto_data, str_list, type_list)
+        print 'name :', name_data
+        method_list.append(Dex_method_id(class_idx, proto_idx, name_idx))
+
+    return method_list
+
+
+def parse_class_def_items(dex_data, map_item, str_list, type_list, field_list, method_list):
+    pass
+
+
+def print_proto(proto, str_list, type_list):
+    shorty_idx = proto.shorty_idx
+    return_type_idx = proto.return_type_idx
+
+    dex_type_list = proto.dex_type_list.type_item_list
+    ty_str = ''
+    for t in dex_type_list:
+        type_idx = t.type_idx
+        ty = type_list[type_idx]
+        ty_str = ty_str + ' ' + ty
+
+    shorty = str_list[shorty_idx]
+    return_type = type_list[return_type_idx]
+    result = 'shorty: ' + shorty + ' type: ' + ty_str + ' return type ' + return_type
+    return result
 
 
 def bytedata_to_int(data):

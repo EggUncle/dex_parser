@@ -8,8 +8,8 @@ class Dex_proto_id(object):
         self.return_type_idx = return_type_idx  # 指向dex type id 列表的索引
         self.parameters_off = parameters_off  # 指向dex type list的偏移
 
-    def set_type_list(self, size, type_item_list):
-        self.dex_type_list = Dex_type_list(size, type_item_list)
+    def set_type_list(self, type_item_list):
+        self.dex_type_list = type_item_list
 
 
 class Dex_type_list(object):
@@ -17,8 +17,8 @@ class Dex_type_list(object):
         self.size = size
         self.type_item_list = type_item_list
 
-    def add_type_item_list(self, type_idx):
-        self.type_item_list.append(Dex_type_item(type_idx))
+    def add_type_item_list(self, dex_type_item):
+        self.type_item_list.append(dex_type_item)
         pass
 
 
