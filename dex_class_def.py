@@ -25,7 +25,7 @@ class Dex_class_data(object):
         self.virtual_methods = virtual_methods
 
 
-class Dex_class_deta_header(object):
+class Dex_class_data_header(object):
     def __init__(self, staitc_fields_size, instance_fields_size, direct_methods_size,
                  virtual_methods_size):
         self.staitc_fields_size = staitc_fields_size
