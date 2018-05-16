@@ -208,23 +208,30 @@ def parse_map(dex_data, dex_header_data):
         item_offset = endan_little(map_item_data[16:24])
         map_items.append(Dex_map_item(item_type, item_unused, item_size, item_offset))
 
-        print ''
-        print 'map item: ', i
-        print 'type:', item_type, map_type_dict[item_type]
-        print 'unused:', item_unused
-        print 'size:', item_size
-        print 'offset:', item_offset
+        # print ''
+        # print 'map item: ', i
+        # print 'type:', item_type, map_type_dict[item_type]
+        # print 'unused:', item_unused
+        # print 'size:', item_size
+        # print 'offset:', item_offset
 
     return map_items
 
 
+str_list = []
+type_list = []
+proto_list = []
+field_list = []
+method_list = []
+
+
 def parse_map_items(dex_data, map_items):
     print '--------------map items----------------'
-    str_list = []
-    type_list = []
-    proto_list = []
-    field_list = []
-    method_list = []
+    global str_list
+    global type_list
+    global proto_list
+    global field_list
+    global method_list
     for item in map_items:
         ty = item.type
         if ty == '0001':
@@ -366,10 +373,10 @@ def parse_method_items(dex_data, map_item, str_list, type_list, proto_list):
         class_data = type_list[class_idx]
         proto_data = proto_list[proto_idx]
         name_data = str_list[name_idx]
-        print ''
-        print 'class :', class_data
-        print 'proto :', print_proto(proto_data, str_list, type_list)
-        print 'name :', name_data
+        # print ''
+        # print 'class :', class_data
+        # print 'proto :', print_proto(proto_data, str_list, type_list)
+        # print 'name :', name_data
         method_list.append(Dex_method_id(class_idx, proto_idx, name_idx))
 
     return method_list
@@ -394,14 +401,23 @@ def parse_class_def_items(dex_data, map_item, str_list, type_list, field_list, m
         static_values_off = bytedata_to_int(item_data[28:32])
 
         class_name = type_list[class_idx]
+
+        # print class_name
+        source_file = ''
+        if binascii.b2a_hex(item_data[16:20]) != 'ffffffff':
+            source_file = str_list[source_file_idx]
         superclass_name = type_list[superclass_idx]
-        source_file = str_list[source_file_idx]
+        # print source_file
+        # print superclass_name
+        if class_data_off == 0:
+            continue
+        print '==============='
 
-        parse_class_data(dex_data, class_data_off, field_list, method_list)
+        parse_class_data(dex_data, class_data_off)
 
 
-def parse_class_data(dex_data, class_data_off, field_list, method_list):
-    class_header_data = dex_data[class_data_off:16]
+def parse_class_data(dex_data, class_data_off):
+    class_header_data = dex_data[class_data_off:class_data_off + 4]
     dex_class_data_header = parse_class_data_header(class_header_data)
 
     static_fields_size = dex_class_data_header.staitc_fields_size
@@ -409,81 +425,137 @@ def parse_class_data(dex_data, class_data_off, field_list, method_list):
     direct_methods_size = dex_class_data_header.direct_methods_size
     virtual_methods_size = dex_class_data_header.virtual_methods_size
 
-    class_data_size = 16 + (static_fields_size + instance_fields_size) * 8 + (
-            direct_methods_size + virtual_methods_size) * 12
+    class_data_size = 4 + (static_fields_size + instance_fields_size) * 2 + (
+            direct_methods_size + virtual_methods_size) * 8
 
     class_data = dex_data[class_data_off:class_data_off + class_data_size]
-    class_data_with_out_header = class_data[16:]
+    class_data_with_out_header = class_data[4:]
 
-    first_static_field_data = ''
-    first_static_field_data_start = 0
-    first_static_field_data_end = 0
+    static_field_data = ''
+    static_field_data_start = 0
+    static_field_data_end = 0
     if static_fields_size != 0:
-        first_static_field_data_end = 8
-        first_static_field_data = class_data_with_out_header[first_static_field_data_start: first_static_field_data_end]
+        static_field_data_end = 2 * static_fields_size
+        static_field_data = class_data_with_out_header[static_field_data_start:  static_field_data_end]
 
-    first_instance_field_data = ''
-    first_instance_field_data_start = first_static_field_data_end
-    first_instance_field_data_end = 0
+    print static_field_data_start, static_field_data_end
+
+    instance_field_data = ''
+    instance_field_data_start = static_field_data_end
+    instance_field_data_end = instance_field_data_start
     if instance_fields_size != 0:
-        first_instance_field_data_end = first_instance_field_data_start + 8
-        first_instance_field_data = class_data_with_out_header[
-                                    first_instance_field_data_start:first_instance_field_data_end]
+        instance_field_data_end = instance_field_data_start + 2 * instance_fields_size
+        instance_field_data = class_data_with_out_header[
+                              instance_field_data_start: instance_field_data_end]
 
-    first_direct_method_data = ''
-    first_direct_method_data_start = first_instance_field_data_end
-    first_direct_method_data_end = 0
+    print instance_field_data_start, instance_field_data_end
+
+    direct_method_data = ''
+    direct_method_data_start = instance_field_data_end
+    direct_method_data_end = direct_method_data_start
     if direct_methods_size != 0:
-        first_direct_method_data_end = first_direct_method_data_start + 12
-        first_direct_method_data = class_data_with_out_header[
-                                   first_direct_method_data_start:first_direct_method_data_end]
+        direct_method_data_end = direct_method_data_start + 8 * direct_methods_size
+        direct_method_data = class_data_with_out_header[
+                             direct_method_data_start: direct_method_data_end]
 
-    first_virtual_method_data = ''
-    first_virtual_method_data_start = first_direct_method_data_end
-    first_virtual_method_data_end = 0
+    print direct_method_data_start, direct_method_data_end
+
+    virtual_method_data = ''
+    virtual_method_data_start = direct_method_data_end
+    virtual_method_data_end = virtual_method_data_start
     if virtual_methods_size != 0:
-        first_virtual_method_data_end = first_virtual_method_data_start + 12
-        first_virtual_method_data = class_data_with_out_header[
-                                    first_virtual_method_data_start:first_virtual_method_data_end]
+        virtual_method_data_end = virtual_method_data_start + 8 * virtual_methods_size
+        virtual_method_data = class_data_with_out_header[
+                              virtual_method_data_start: virtual_method_data_end]
 
-    parse_class_field(first_static_field_data, field_list)
-    parse_class_field(first_instance_field_data, field_list)
-    parse_class_method(first_direct_method_data, method_list)
-    parse_class_method(first_virtual_method_data, method_list)
+    print virtual_method_data_start, virtual_method_data_end
+
+    parse_class_field(static_field_data, static_fields_size)
+    parse_class_field(instance_field_data, instance_fields_size)
+    parse_class_method(direct_method_data, direct_methods_size)
+    parse_class_method(virtual_method_data, virtual_methods_size)
 
 
 def parse_class_data_header(data):
-    static_fields_size = bytedata_to_int(data[0:4])
-    instance_fields_size = bytedata_to_int(data[4:8])
-    direct_methods_size = bytedata_to_int(data[8:12])
-    virtual_methods_size = bytedata_to_int(data[12:16])
+    static_fields_size = bytedata_to_int(data[0:1])
+    instance_fields_size = bytedata_to_int(data[1:2])
+    direct_methods_size = bytedata_to_int(data[2:3])
+    virtual_methods_size = bytedata_to_int(data[3:4])
 
+    print '-----'
+    print static_fields_size
+    print instance_fields_size
+    print direct_methods_size
+    print virtual_methods_size
+    print '-----'
     return Dex_class_data_header(static_fields_size, instance_fields_size, direct_methods_size, virtual_methods_size)
 
 
-def parse_class_field(data, field_list):
+def parse_class_field(data, size):
     if data == '':
         return
+    a = binascii.b2a_hex(data)
+    print a
+    list_f = []
+    field_idx = 0
+    for i in range(0, size):
+        i_start = i * 2
+        i_end = i * 2 + 2
+        d = data[i_start:i_end]
+        field_idx_off = bytedata_to_int(d[0:1])
+        access_flags = bytedata_to_int(d[1:2])
+        list_f.append(Dex_field(field_idx_off, access_flags))
 
-    field_idx = bytedata_to_int(data[0:4])
-    access_flags = data[4:8]
+        if i == 0:
+            field_idx = field_idx_off
+        else:
+            field_idx = field_idx + field_idx_off
 
-    print 'field : ', field_list[field_idx]
+        field = field_list[field_idx]
+        # print '--------------'
+        # print field_idx, field_idx_off
+        # print type_list[field.class_idx]
+        # print type_list[field.type_idx]
+        # print str_list[field.name_idx]
+    return list_f
 
-    return Dex_field(field_idx, access_flags)
 
-
-def parse_class_method(data, method_list):
+def parse_class_method(data, size):
     if data == '':
         return
+    print '------'
+    print size
+    print '------'
+    # len(data)
+    a = binascii.b2a_hex(data)
+    print a
+    # access_flags = data[2:5]
+    # code_off = bytedata_to_int(data[5:8])
+    #
+    # method = method_list[method_idx]
+    #
+    # return Dex_method(method_idx, access_flags, code_off)
+    list_m = []
+    method_idx = 0
+    for i in range(0, size):
+        i_start = i * 8
+        i_end = i * 8 + 8
+        d = data[i_start:i_end]
+        method_idx_off = bytedata_to_int(d[0:2])
+        access_flags = d[2:5]
+        code_off = bytedata_to_int(d[5:8])
 
-    method_idx = bytedata_to_int(data[0:4])
-    access_flags = data[4:8]
-    code_off = bytedata_to_int(data[8:12])
-
-    print 'method : ', method_list[method_idx]
-
-    return Dex_method(method_idx, access_flags, code_off)
+        if i == 0:
+            method_idx = method_idx_off
+        else:
+            method_idx = method_idx + method_idx_off
+        list_m.append(Dex_method(method_idx_off, access_flags, code_off))
+        print method_idx, method_idx_off
+        method = method_list[method_idx]
+        print '--------------'
+        print type_list[method.class_idx]
+        print proto_list[method.proto_idx]
+        print str_list[method.name_idx]
 
 
 def print_proto(proto, str_list, type_list):
@@ -505,3 +577,9 @@ def print_proto(proto, str_list, type_list):
 
 def bytedata_to_int(data):
     return int(endan_little(binascii.b2a_hex(data)), 16)
+
+
+def read_uleb128(byte):
+    need_next = False
+    bin_data = bin(byte)
+    print bin_data
