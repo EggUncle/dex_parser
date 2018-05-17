@@ -412,7 +412,7 @@ def parse_class_def_items(dex_data, map_item, str_list, type_list, field_list, m
         if class_data_off == 0:
             continue
         print '==============='
-
+        print class_name
         parse_class_data(dex_data, class_data_off)
 
 
@@ -425,55 +425,96 @@ def parse_class_data(dex_data, class_data_off):
     direct_methods_size = dex_class_data_header.direct_methods_size
     virtual_methods_size = dex_class_data_header.virtual_methods_size
 
-    class_data_size = 4 + (static_fields_size + instance_fields_size) * 2 + (
-            direct_methods_size + virtual_methods_size) * 8
+    class_data_with_out_header = dex_data[class_data_off + 4:]
 
-    class_data = dex_data[class_data_off:class_data_off + class_data_size]
-    class_data_with_out_header = class_data[4:]
-
-    static_field_data = ''
-    static_field_data_start = 0
-    static_field_data_end = 0
+    static_field_data = []
+    size = 0
     if static_fields_size != 0:
-        static_field_data_end = 2 * static_fields_size
-        static_field_data = class_data_with_out_header[static_field_data_start:  static_field_data_end]
+        idx = 0
+        for i in range(0, static_fields_size):
+            static_field_idx_data, static_field_data_idx_size, static_field_idx = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + static_field_data_idx_size
+            static_access_flags_data, static_access_flags_data_size, static_access_flags = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + static_access_flags_data_size
 
-    print static_field_data_start, static_field_data_end
+            static_field_data.append(Dex_field(static_field_idx, static_access_flags))
+            if i == 0:
+                idx = static_field_idx
+            else:
+                idx = idx + static_field_idx
+            print_field(field_list[idx])
 
-    instance_field_data = ''
-    instance_field_data_start = static_field_data_end
-    instance_field_data_end = instance_field_data_start
+    instance_field_data = []
     if instance_fields_size != 0:
-        instance_field_data_end = instance_field_data_start + 2 * instance_fields_size
-        instance_field_data = class_data_with_out_header[
-                              instance_field_data_start: instance_field_data_end]
+        idx = 0
+        for i in range(0, instance_fields_size):
+            instance_field_idx_data, instance_field_data_idx_size, instance_field_idx = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + instance_field_data_idx_size
 
-    print instance_field_data_start, instance_field_data_end
+            instance_access_flags_data, instance_access_flags_data_size, instance_access_flags = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + instance_access_flags_data_size
 
-    direct_method_data = ''
-    direct_method_data_start = instance_field_data_end
-    direct_method_data_end = direct_method_data_start
+            instance_field_data.append(Dex_field(instance_field_idx, instance_access_flags))
+
+            if i == 0:
+                idx = instance_field_idx
+            else:
+                idx = idx + instance_field_idx
+
+            # print binascii.b2a_hex(instance_field_idx_data+instance_access_flags_data)
+            print idx
+            print_field(field_list[idx])
+
+    direct_method_data = []
     if direct_methods_size != 0:
-        direct_method_data_end = direct_method_data_start + 8 * direct_methods_size
-        direct_method_data = class_data_with_out_header[
-                             direct_method_data_start: direct_method_data_end]
+        idx = 0
+        for i in range(0, direct_methods_size):
+            direct_method_idx_data, direct_method_idx_data_size, direct_method_idx = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + direct_method_idx_data_size
 
-    print direct_method_data_start, direct_method_data_end
+            direct_access_flags_data, direct_access_flags_data_size, direct_access_flags = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + direct_access_flags_data_size
+            direct_code_off_data, direct_code_off_data_size, direct_code_off = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + direct_code_off_data_size
+            direct_method_data.append(Dex_method(direct_method_idx, direct_access_flags, direct_code_off))
 
-    virtual_method_data = ''
-    virtual_method_data_start = direct_method_data_end
-    virtual_method_data_end = virtual_method_data_start
+            if i == 0:
+                idx = direct_method_idx
+            else:
+                idx = idx + direct_method_idx
+            print_method(method_list[idx])
+
+    virtual_method_data = []
     if virtual_methods_size != 0:
-        virtual_method_data_end = virtual_method_data_start + 8 * virtual_methods_size
-        virtual_method_data = class_data_with_out_header[
-                              virtual_method_data_start: virtual_method_data_end]
+        idx = 0
+        for i in range(0, virtual_methods_size):
+            virtual_method_idx_data, virtual_method_idx_data_size, virtual_method_idx = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + virtual_method_idx_data_size
 
-    print virtual_method_data_start, virtual_method_data_end
+            virtual_access_flags_data, virtual_access_flags_data_size, virtual_access_flags = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + virtual_access_flags_data_size
 
-    parse_class_field(static_field_data, static_fields_size)
-    parse_class_field(instance_field_data, instance_fields_size)
-    parse_class_method(direct_method_data, direct_methods_size)
-    parse_class_method(virtual_method_data, virtual_methods_size)
+            virtual_code_off_data, virtual_code_off_data_size, virtual_code_off = read_uleb128(
+                class_data_with_out_header[size:])
+            size = size + virtual_code_off_data_size
+
+            virtual_method_data.append(Dex_method(virtual_method_idx, virtual_access_flags, virtual_code_off))
+
+            if i == 0:
+                idx = virtual_method_idx
+            else:
+                idx = idx + virtual_method_idx
+
+            print_method(method_list[idx])
 
 
 def parse_class_data_header(data):
@@ -482,12 +523,12 @@ def parse_class_data_header(data):
     direct_methods_size = bytedata_to_int(data[2:3])
     virtual_methods_size = bytedata_to_int(data[3:4])
 
-    print '-----'
-    print static_fields_size
-    print instance_fields_size
-    print direct_methods_size
-    print virtual_methods_size
-    print '-----'
+    # print '-----'
+    # print static_fields_size
+    # print instance_fields_size
+    # print direct_methods_size
+    # print virtual_methods_size
+    # print '-----'
     return Dex_class_data_header(static_fields_size, instance_fields_size, direct_methods_size, virtual_methods_size)
 
 
@@ -518,6 +559,20 @@ def parse_class_field(data, size):
         # print type_list[field.type_idx]
         # print str_list[field.name_idx]
     return list_f
+
+
+def print_field(field):
+    print '--------------'
+    print type_list[field.class_idx]
+    print type_list[field.type_idx]
+    print str_list[field.name_idx]
+
+
+def print_method(method):
+    print type_list[method.class_idx]
+    print print_proto(proto_list[method.proto_idx])
+    print str_list[method.name_idx]
+    pass
 
 
 def parse_class_method(data, size):
@@ -558,7 +613,7 @@ def parse_class_method(data, size):
         print str_list[method.name_idx]
 
 
-def print_proto(proto, str_list, type_list):
+def print_proto(proto):
     shorty_idx = proto.shorty_idx
     return_type_idx = proto.return_type_idx
 
@@ -579,7 +634,33 @@ def bytedata_to_int(data):
     return int(endan_little(binascii.b2a_hex(data)), 16)
 
 
-def read_uleb128(byte):
-    need_next = False
-    bin_data = bin(byte)
-    print bin_data
+def read_uleb128(data):
+    hex_str = binascii.b2a_hex(data)
+    result = int(hex_str[0:2], 16)
+    result_str = hex_str[0:2]
+    if result > 0x7f:
+        tmp = int(hex_str[2:4], 16)
+        result_str = result_str + hex_str[2:4]
+        result = (result & 0x7f) | ((tmp & 0x7f) << 7)
+        if tmp > 0x7f:
+            tmp = int(hex_str[4:6], 16)
+            result_str = result_str + hex_str[4:6]
+            result = (result & 0x7f) | ((tmp & 0x7f) << 14)
+            if tmp > 0x7f:
+                tmp = int(hex_str[6:8], 16)
+                result_str = result_str + hex_str[6:8]
+                result = (result & 0x7f) | ((tmp & 0x7f) << 21)
+                if tmp > 0x7f:
+                    tmp = int(hex_str[:8:10], 16)
+                    result_str = result_str + hex_str[8:10]
+                    result = (result & 0x7f) | ((tmp & 0x7f) << 28)
+
+    hex_str = hex(result)[2:]
+    if len(hex_str) % 2 == 1:
+        hex_str = '0' + hex_str
+    data_size = len(binascii.a2b_hex(result_str))
+    # print result_str, data_size
+    # print result_str, "==="
+
+    # 数据的值,数据的大小,实际内容的值
+    return binascii.a2b_hex(result_str), data_size, int(hex_str, 16)
